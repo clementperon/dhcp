@@ -533,9 +533,9 @@ AC_SEARCH_LIBS(regcomp, [regex])
 AC_SEARCH_LIBS(if_nametoindex, [ipv6])
 
 # check for /dev/random (declares HAVE_DEV_RANDOM)
-AC_CHECK_FILE(/dev/random,
-	AC_DEFINE([HAVE_DEV_RANDOM], [1], 
-		  [Define to 1 if you have the /dev/random file.]))
+# XXX don't check for cross build
+AC_DEFINE([HAVE_DEV_RANDOM], [1], 
+	[Define to 1 if you have the /dev/random file.])
 
 # see if there is a "sa_len" field in our interface information structure
 AC_CHECK_MEMBER(struct sockaddr.sa_len,

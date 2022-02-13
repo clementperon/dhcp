@@ -36,8 +36,8 @@
 #include <asm/types.h>
 #include <linux/filter.h>
 #include <linux/if_ether.h>
+#include <linux/if_packet.h>
 #include <netinet/in_systm.h>
-#include <net/if_packet.h>
 #include "includes/netinet/ip.h"
 #include "includes/netinet/udp.h"
 #include "includes/netinet/if_ether.h"
@@ -67,11 +67,13 @@ void if_reinitialize_receive (info)
 int if_register_lpf (info)
 	struct interface_info *info;
 {
+	int val;
 	int sock;
-	struct sockaddr sa;
+	struct ifreq tmp;
+	struct sockaddr_ll sa;
 
 	/* Make an LPF socket. */
-	if ((sock = socket(PF_PACKET, SOCK_PACKET,
+	if ((sock = socket(PF_PACKET, SOCK_RAW,
 			   htons((short)ETH_P_ALL))) < 0) {
 		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
 		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
@@ -86,11 +88,20 @@ int if_register_lpf (info)
 		log_fatal ("Open a socket for LPF: %m");
 	}
 
+	val = 1;
+	setsockopt(sock, SOL_PACKET, PACKET_AUXDATA, &val, sizeof(val));
+
+	memcpy(&tmp, info->ifp, sizeof(tmp));
+	if (ioctl(sock, SIOCGIFINDEX, &tmp) < 0) {
+		log_fatal("Error getting interface index for \"%s\": %m",
+			  tmp.ifr_name);
+	}
+
 	/* Bind to the interface name */
 	memset (&sa, 0, sizeof sa);
-	sa.sa_family = AF_PACKET;
-	strncpy (sa.sa_data, (const char *)info -> ifp, sizeof sa.sa_data);
-	if (bind (sock, &sa, sizeof sa)) {
+	sa.sll_family = AF_PACKET;
+	sa.sll_ifindex = tmp.ifr_ifindex;
+	if (bind (sock, (struct sockaddr *)&sa, sizeof sa)) {
 		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
 		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
 		    errno == EAFNOSUPPORT || errno == EINVAL) {
@@ -296,7 +307,6 @@ ssize_t send_packet (interface, packet, raw, len, from, to, hto)
 	double hh [16];
 	double ih [1536 / sizeof (double)];
 	unsigned char *buf = (unsigned char *)ih;
-	struct sockaddr_pkt sa;
 	int result;
 	int fudge;
 
@@ -314,22 +324,24 @@ ssize_t send_packet (interface, packet, raw, len, from, to, hto)
 				(unsigned char *)raw, len);
 	memcpy (buf + ibufp, raw, len);
 
-	/* For some reason, SOCK_PACKET sockets can't be connected,
-	   so we have to do a sentdo every time. */
-	memset (&sa, 0, sizeof sa);
-	sa.spkt_family = AF_PACKET;
-	strncpy ((char *)sa.spkt_device,
-		 (const char *)interface -> ifp, sizeof sa.spkt_device);
-	sa.spkt_protocol = htons(ETH_P_IP);
-
-	result = sendto (interface -> wfdesc,
-			 buf + fudge, ibufp + len - fudge, 0, 
-			 (const struct sockaddr *)&sa, sizeof sa);
+	result = send (interface -> wfdesc,
+		       buf + fudge, ibufp + len - fudge, 0);
 	if (result < 0)
 		log_error ("send_packet: %m");
 	return result;
 }
 #endif /* USE_LPF_SEND */
+
+struct tpacket_auxdata_new
+{
+	__u32           tp_status;
+	__u32           tp_len;
+	__u32           tp_snaplen;
+	__u16           tp_mac;
+	__u16           tp_net;
+	__u16           tp_vlan_tci;
+	__u16           tp_padding;
+};
 
 #ifdef USE_LPF_RECEIVE
 ssize_t receive_packet (interface, buf, len, from, hfrom)
@@ -345,9 +357,37 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
 	unsigned bufix = 0;
 	unsigned paylen;
 
-	length = read (interface -> rfdesc, ibuf, sizeof ibuf);
+	struct cmsghdr *cmsg;
+	union {
+		struct cmsghdr cmsg;
+		char buf[CMSG_SPACE(sizeof(struct tpacket_auxdata_new))];
+	} cmsg_buf;
+	struct msghdr msg = {};
+	struct iovec iov;
+
+	iov.iov_base = ibuf;
+	iov.iov_len = sizeof ibuf;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = &cmsg_buf;
+	msg.msg_controllen = sizeof cmsg_buf;
+
+	length = recvmsg (interface -> rfdesc, &msg, 0);
 	if (length <= 0)
 		return length;
+
+	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		struct tpacket_auxdata_new *aux;
+
+		if (cmsg->cmsg_len < CMSG_LEN(sizeof(struct tpacket_auxdata_new)) ||
+		    cmsg->cmsg_level != SOL_PACKET ||
+		    cmsg->cmsg_type != PACKET_AUXDATA)
+			continue;
+
+		aux = (struct tpacket_auxdata_new *)CMSG_DATA(cmsg);
+		if (aux->tp_vlan_tci != 0)
+			return 0;
+	}
 
 	bufix = 0;
 	/* Decode the physical header... */
