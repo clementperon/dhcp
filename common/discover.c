@@ -255,6 +255,10 @@ begin_iface_scan(struct iface_conf_list *ifaces) {
 		return 0;
 	}
 
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(ifaces->sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 	memset(&lifnum, 0, sizeof(lifnum));
 #ifdef ISC_PLATFORM_HAVELIFNUM
 	lifnum.lifn_family = AF_UNSPEC;
@@ -453,6 +457,10 @@ begin_iface_scan(struct iface_conf_list *ifaces) {
 		ifaces->fp = NULL;
 		return 0;
 	}
+
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(ifaces->sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
 
 #ifdef DHCPv6
 	if (local_family == AF_INET6) {

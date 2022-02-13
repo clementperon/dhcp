@@ -101,6 +101,10 @@ void icmp_startup (routep, handler)
 			return;
 		}
 
+        	/* Set Kernel Priority to 6 */
+        	int val = 6;
+        	setsockopt(icmp_state -> socket, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 #if defined (HAVE_SETFD)
 		if (fcntl (icmp_state -> socket, F_SETFD, 1) < 0)
 			log_error ("Can't set close-on-exec on icmp: %m");

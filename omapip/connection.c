@@ -153,6 +153,9 @@ isc_result_t omapi_connect_list (omapi_object_t *c,
 				return ISC_R_NORESOURCES;
 			return ISC_R_UNEXPECTED;
 		}
+        	/* Set Kernel Priority to 6 */
+        	int val = 6;
+        	setsockopt(obj -> socket, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
 
 		/* Set up the local address, if any. */
 		if (local_addr) {

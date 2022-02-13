@@ -192,6 +192,10 @@ if_register_socket(struct interface_info *info, int family,
 		log_fatal("Can't create dhcp socket: %m");
 	}
 
+	/* Set Kernel Priority to 6 */
+	int val = 6;
+	setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 	/* Set the REUSEADDR option so that we don't fail to start if
 	   we're being restarted. */
 	flag = 1;
@@ -1095,6 +1099,10 @@ get_hw_addr(const char *name, struct hardware *hw) {
 	}
 
  flag_check:
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 	if (lifr.lifr_flags & (IFF_VIRTUAL|IFF_IPMP)) {
 		hw->hlen = sizeof (hw->hbuf);
 		srandom((long)gethrtime());

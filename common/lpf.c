@@ -88,6 +88,10 @@ int if_register_lpf (info)
 		log_fatal ("Open a socket for LPF: %m");
 	}
 
+        /* Set Kernel Priority to 6 */
+        val = 6;
+        setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 	val = 1;
 	setsockopt(sock, SOL_PACKET, PACKET_AUXDATA, &val, sizeof(val));
 
@@ -470,6 +474,10 @@ get_hw_addr(const char *name, struct hardware *hw) {
 	if (sock < 0) {
 		log_fatal("Can't create socket for \"%s\": %m", name);
 	}
+
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
 
 	memset(&tmp, 0, sizeof(tmp));
 	strcpy(tmp.ifr_name, name);

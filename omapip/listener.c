@@ -133,6 +133,10 @@ isc_result_t omapi_listen_addr (omapi_object_t *h,
 			goto error_exit;
 		}
 
+        	/* Set Kernel Priority to 6 */
+        	int val = 6;
+        	setsockopt(obj -> socket, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 #if defined (HAVE_SETFD)
 		if (fcntl (obj -> socket, F_SETFD, 1) < 0) {
 			status = ISC_R_UNEXPECTED;

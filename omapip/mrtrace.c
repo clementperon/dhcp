@@ -343,10 +343,16 @@ int trace_mr_connect (int s, struct sockaddr *name, SOCKLEN_T namelen)
 int trace_mr_socket (int domain, int type, int protocol)
 {
 #if defined (TRACING)
-	if (!trace_playback ())
+	if (!trace_playback ()) {
 #endif
-		return socket (domain, type, protocol);
+	int sock = socket (domain, type, protocol);
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
+	return sock; 
 #if defined (TRACING)
+	}
 	return 100;
 #endif
 }

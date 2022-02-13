@@ -384,6 +384,10 @@ res_nsend(res_state statp,
 					       "socket(vc)", errno);
 					return (-1);
 				}
+        			/* Set Kernel Priority to 6 */
+        			int val = 6;
+        			setsockopt(statp->_sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 				errno = 0;
 				if (connect(statp->_sock,
 					    (struct sockaddr *)nsap,
@@ -542,6 +546,10 @@ res_nsend(res_state statp,
 					       "socket(dg)", errno);
 					return terrno;
 				}
+        			/* Set Kernel Priority to 6 */
+        			int val = 6;
+        			setsockopt(statp->_sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 				statp->_flags &= ~RES_F_CONN;
 			}
 #ifndef CANNOT_CONNECT_DGRAM
@@ -609,6 +617,10 @@ res_nsend(res_state statp,
 
 					len = sizeof(local_addr);
 					s1 = socket(PF_INET, SOCK_DGRAM, 0);
+        				/* Set Kernel Priority to 6 */
+        				int val = 6;
+        				setsockopt(s1, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 					result = getsockname(statp->_sock,
 						(struct sockaddr *)&local_addr,
 							     &len);

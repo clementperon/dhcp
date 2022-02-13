@@ -72,6 +72,10 @@ void if_register_send (info)
 	if ((sock = socket (AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 		log_fatal ("Can't create dhcp socket: %m");
 
+        /* Set Kernel Priority to 6 */
+        int val = 6;
+        setsockopt(sock, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val));
+
 	/* Set the BROADCAST option so that we can broadcast DHCP responses. */
 	flag = 1;
 	if (setsockopt (sock, SOL_SOCKET, SO_BROADCAST,
